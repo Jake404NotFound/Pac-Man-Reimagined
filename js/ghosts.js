@@ -21,6 +21,7 @@ class Ghost {
         this.housePosition = { x: 0, y: 0 };
         this.scatterTarget = { x: 0, y: 0 };
         this.elroyMode = 0; // 0 = not elroy, 1 = elroy 1, 2 = elroy 2
+        this.exitingHouse = false; // New flag to track exit state
     }
 
     /**
@@ -67,6 +68,7 @@ class Ghost {
         this.releaseTimer = 0;
         this.dotCounter = 0;
         this.elroyMode = 0;
+        this.exitingHouse = false;
     }
 
     /**
@@ -164,6 +166,7 @@ class Ghost {
             // Check if the ghost should leave the house
             if (this.shouldLeaveHouse(dotsEaten)) {
                 this.mode = GHOST_MODE.LEAVING_HOUSE;
+                this.exitingHouse = true; // Set the exiting flag
                 
                 // Initial direction should be towards the door's horizontal center, then UP
                 const doorTile = gameMap.ghostDoorTiles[0]; // Assuming door is at [0]
@@ -178,16 +181,10 @@ class Ghost {
                     this.direction = this.x < houseCenterDoorX ? DIRECTION.RIGHT : DIRECTION.LEFT;
                     this.nextDirection = this.direction;
                 }
-                
-                // Force vertical alignment if needed, assuming ghosts start below door level
-                const spawn = gameMap.ghostSpawns[this.type];
-                this.y = Math.max(this.y, gridToPixel(spawn.row, spawn.column).y);
             }
             
             return;
         }
-        
-        // REMOVED: Handle leaving house mode - now handled entirely in moveInHouse
         
         // Check if Blinky should enter Elroy mode
         if (this.type === GHOST_TYPE.BLINKY) {
@@ -340,12 +337,12 @@ class Ghost {
         
         // Move in the current direction
         const dirVector = directionToVector(this.direction);
-        const nextX = this.x + dirVector.x * this.speed;
-        const nextY = this.y + dirVector.y * this.speed;
+        const nextX = this.x + dirVector.x * this.speed * (deltaTime / 1000);
+        const nextY = this.y + dirVector.y * this.speed * (deltaTime / 1000);
         const nextGrid = pixelToGrid(nextX, nextY);
         
         // Check if the next position is valid
-        const canUseGhostDoor = this.mode === GHOST_MODE.LEAVING_HOUSE || this.eaten;
+        const canUseGhostDoor = this.mode === GHOST_MODE.LEAVING_HOUSE || this.eaten || this.exitingHouse;
         
         if (gameMap.canMove(nextGrid.row, nextGrid.column, canUseGhostDoor)) {
             this.x = nextX;
@@ -366,15 +363,14 @@ class Ghost {
      * @param {number} deltaTime - Time elapsed since the last update
      */
     moveInHouse(deltaTime) {
-        const houseSpeed = this.speed * 0.5; // Slower movement in house
-        
-        // If just bobbing up and down in HOUSE mode
+        // Simplified ghost house movement
         if (this.mode === GHOST_MODE.HOUSE) {
+            // Simple up and down bobbing motion
             const dirVector = directionToVector(this.direction);
-            this.y += dirVector.y * houseSpeed * (deltaTime / 1000); // Add deltaTime scaling
+            this.y += dirVector.y * this.speed * (deltaTime / 1000);
             
             // Reverse direction at boundaries
-            const spawnPixelY = this.housePosition.y; // Use initial spawn Y as center
+            const spawnPixelY = this.housePosition.y;
             if (this.y <= spawnPixelY - 8) {
                 this.y = spawnPixelY - 8;
                 this.direction = DIRECTION.DOWN;
@@ -385,58 +381,48 @@ class Ghost {
                 this.nextDirection = DIRECTION.UP;
             }
             
-            // Also add slight horizontal bobble if desired, or snap X
-            this.x = this.housePosition.x; // Keep X fixed to spawn column
-            
-            return; // Don't execute LEAVING_HOUSE logic
+            // Keep X fixed to spawn column
+            this.x = this.housePosition.x;
+            return;
         }
         
-        // --- Logic for LEAVING_HOUSE ---
+        // Simplified exit logic for LEAVING_HOUSE mode
         if (this.mode === GHOST_MODE.LEAVING_HOUSE) {
-            // Target position: Center X between door tiles (13.5), and Row above door (13)
-            const targetX = gridToPixel(13, 13.5).x;
-            const targetY = gridToPixel(13, 13.5).y; // Y-coord of the tile *above* the door gap
-            const exitY = targetY - SCALED_TILE_SIZE / 2; // The exact Y coord to place ghost when exiting
+            // Get door position
+            const doorTile = gameMap.ghostDoorTiles[0];
+            const doorPos = gridToPixel(doorTile.row, doorTile.column);
             
-            // 1. Move horizontally towards target X if not aligned
-            if (Math.abs(this.x - targetX) > 1) {
-                this.direction = this.x < targetX ? DIRECTION.RIGHT : DIRECTION.LEFT;
-                this.nextDirection = this.direction;
+            // Target position is directly above the door
+            const targetX = doorPos.x;
+            const targetY = doorPos.y - SCALED_TILE_SIZE;
+            
+            // Calculate direction to target
+            const dx = targetX - this.x;
+            const dy = targetY - this.y;
+            
+            // Determine primary movement direction
+            if (Math.abs(dx) > 2) {
+                // Need to move horizontally first
+                this.direction = dx > 0 ? DIRECTION.RIGHT : DIRECTION.LEFT;
                 const dirVector = directionToVector(this.direction);
-                this.x += dirVector.x * houseSpeed * (deltaTime / 1000); // Add deltaTime scaling
-                
-                // Prevent overshooting
-                if ((this.direction === DIRECTION.RIGHT && this.x > targetX) ||
-                    (this.direction === DIRECTION.LEFT && this.x < targetX)) {
-                    this.x = targetX;
-                }
-                
-                // Ensure Y stays aligned with spawn row while moving horizontally initially
-                const spawn = gameMap.ghostSpawns[this.type];
-                this.y = Math.max(this.y, gridToPixel(spawn.row, spawn.column).y);
-            }
-            // 2. Once horizontally aligned, move vertically UP towards target Y
-            else {
-                this.x = targetX; // Snap X to center
+                this.x += dirVector.x * this.speed * (deltaTime / 1000);
+            } else {
+                // Aligned horizontally, move up
+                this.x = targetX; // Snap to exact X position
                 this.direction = DIRECTION.UP;
-                this.nextDirection = DIRECTION.UP;
                 const dirVector = directionToVector(this.direction);
-                this.y += dirVector.y * houseSpeed * (deltaTime / 1000); // Add deltaTime scaling
+                this.y += dirVector.y * this.speed * (deltaTime / 1000);
                 
-                // 3. Check if ghost has reached or passed the exit Y position
-                if (this.y <= exitY) {
-                    this.y = exitY; // Snap to exact exit position
-                    this.mode = this.previousMode; // Exit to Scatter or Chase
-                    
-                    // Choose initial direction outside: typically LEFT for Pinky/Inky/Clyde
+                // Check if we've reached the target position
+                if (this.y <= targetY) {
+                    // Successfully exited the house
+                    this.y = targetY;
+                    this.mode = GHOST_MODE.SCATTER;
                     this.direction = DIRECTION.LEFT;
                     this.nextDirection = DIRECTION.LEFT;
+                    this.exitingHouse = false; // Clear the exiting flag
                     
-                    // Ensure previousMode is set correctly if exiting directly from HOUSE
-                    if (this.previousMode === GHOST_MODE.HOUSE) {
-                        this.previousMode = GHOST_MODE.SCATTER; // Default to scatter after leaving
-                        this.mode = GHOST_MODE.SCATTER;
-                    }
+                    console.log(`${this.type} ghost has exited the house`);
                 }
             }
         }
@@ -449,7 +435,7 @@ class Ghost {
      */
     chooseNextDirection(row, column) {
         // Get valid directions (excluding the opposite of the current direction)
-        const validDirections = gameMap.getValidDirections(row, column, this.eaten);
+        const validDirections = gameMap.getValidDirections(row, column, this.eaten || this.exitingHouse);
         const oppositeDir = getOppositeDirection(this.direction);
         
         // Ghosts cannot reverse direction unless they just changed modes
@@ -532,26 +518,39 @@ class Ghost {
         
         // Force release after a certain time
         const forceReleaseTime = {
-            [GHOST_TYPE.PINKY]: 3 * 60, // 3 seconds at 60 fps
-            [GHOST_TYPE.INKY]: 5 * 60,  // 5 seconds at 60 fps
-            [GHOST_TYPE.CLYDE]: 7 * 60  // 7 seconds at 60 fps
+            [GHOST_TYPE.PINKY]: 2 * 60, // 2 seconds at 60 fps (reduced from 3)
+            [GHOST_TYPE.INKY]: 4 * 60,  // 4 seconds at 60 fps (reduced from 5)
+            [GHOST_TYPE.CLYDE]: 6 * 60  // 6 seconds at 60 fps (reduced from 7)
         };
         
         if (this.releaseTimer >= forceReleaseTime[this.type]) {
+            console.log(`${this.type} ghost released by timer`);
             return true;
         }
         
         // Check dot counter for other ghosts
         switch (this.type) {
             case GHOST_TYPE.PINKY:
-                return dotsEaten >= GHOST_RELEASE_DOTS.PINKY;
+                if (dotsEaten >= GHOST_RELEASE_DOTS.PINKY) {
+                    console.log(`${this.type} ghost released by dots (${dotsEaten})`);
+                    return true;
+                }
+                break;
             case GHOST_TYPE.INKY:
-                return dotsEaten >= GHOST_RELEASE_DOTS.INKY;
+                if (dotsEaten >= GHOST_RELEASE_DOTS.INKY) {
+                    console.log(`${this.type} ghost released by dots (${dotsEaten})`);
+                    return true;
+                }
+                break;
             case GHOST_TYPE.CLYDE:
-                return dotsEaten >= GHOST_RELEASE_DOTS.CLYDE;
-            default:
-                return false;
+                if (dotsEaten >= GHOST_RELEASE_DOTS.CLYDE) {
+                    console.log(`${this.type} ghost released by dots (${dotsEaten})`);
+                    return true;
+                }
+                break;
         }
+        
+        return false;
     }
 
     /**
