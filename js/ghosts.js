@@ -40,7 +40,8 @@ class Ghost {
         switch (this.type) {
             case GHOST_TYPE.BLINKY:
                 this.direction = DIRECTION.LEFT;
-                this.mode = GHOST_MODE.SCATTER;
+                // Changed: Start Blinky in HOUSE mode instead of SCATTER to fix the issue
+                this.mode = GHOST_MODE.HOUSE;
                 this.scatterTarget = gridToPixel(0, COLUMNS - 1); // Top-right corner
                 break;
             case GHOST_TYPE.PINKY:
@@ -495,19 +496,28 @@ class Ghost {
     checkTunnel() {
         const { row, column } = pixelToGrid(this.x, this.y);
         
+        // Enhanced tunnel detection - check if we're in a tunnel tile
         if (gameMap.isTunnel(row, column)) {
             // Only teleport when at the center of the tunnel tile
             if (isAtTileCenter(this.x, this.y)) {
                 const oppositeTunnel = gameMap.getOppositeTunnel(row, column);
                 
                 if (oppositeTunnel) {
+                    // Get the new position at the opposite tunnel
                     const newPos = gridToPixel(oppositeTunnel.row, oppositeTunnel.column);
+                    
+                    // Store current direction before teleporting
+                    const currentDirection = this.direction;
+                    
+                    // Teleport to the opposite tunnel
                     this.x = newPos.x;
                     this.y = newPos.y;
                     
                     // Maintain the same direction after teleporting
-                    // This ensures ghosts continue in the same direction through the tunnel
-                    this.nextDirection = this.direction;
+                    this.direction = currentDirection;
+                    this.nextDirection = currentDirection;
+                    
+                    console.log(`${this.type} ghost teleported through tunnel`);
                 }
             }
         }
@@ -519,8 +529,9 @@ class Ghost {
      * @returns {boolean} True if the ghost should leave the house
      */
     shouldLeaveHouse(dotsEaten) {
-        // Blinky starts outside
+        // Blinky starts outside - but we need to make sure he actually leaves
         if (this.type === GHOST_TYPE.BLINKY) {
+            // Force immediate release for Blinky
             return true;
         }
         
@@ -589,110 +600,94 @@ class Ghost {
     }
 
     /**
-     * Enter frightened mode
-     * @param {number} duration - Duration of frightened mode in milliseconds
-     */
-    enterFrightenedMode(duration) {
-        if (this.eaten) {
-            return; // Already eaten, don't enter frightened mode
-        }
-        
-        this.previousMode = this.mode;
-        this.frightened = true;
-        this.blinkTimer = 0;
-        this.blinking = false;
-        this.mode = GHOST_MODE.FRIGHTENED;
-        
-        // Reverse direction when entering frightened mode
-        this.reverseDirection();
-    }
-
-    /**
-     * Get eaten by Pac-Man
-     */
-    getEaten() {
-        this.frightened = false;
-        this.eaten = true;
-        this.mode = GHOST_MODE.EATEN;
-    }
-
-    /**
      * Draw the ghost on the canvas
      * @param {CanvasRenderingContext2D} ctx - Canvas context
      */
     draw(ctx) {
         ctx.save();
         
-        // Move to ghost's position
-        ctx.translate(this.x, this.y);
-        
         // Draw ghost body
-        this.drawBody(ctx);
-        
-        // Draw ghost eyes
-        this.drawEyes(ctx);
-        
-        ctx.restore();
-    }
-
-    /**
-     * Draw the ghost's body
-     * @param {CanvasRenderingContext2D} ctx - Canvas context
-     */
-    drawBody(ctx) {
-        // Determine ghost color based on mode
-        let color;
-        
-        if (this.eaten) {
-            // Draw only eyes when eaten
+        if (this.frightened) {
+            // Draw frightened ghost
+            ctx.fillStyle = this.blinking ? COLORS.FRIGHTENED_ENDING : COLORS.FRIGHTENED;
+        } else if (this.eaten) {
+            // Draw eyes only for eaten ghost
+            this.drawEyes(ctx);
+            ctx.restore();
             return;
-        } else if (this.frightened) {
-            color = this.blinking ? COLORS.FRIGHTENED_ENDING : COLORS.FRIGHTENED;
         } else {
-            // Normal color based on ghost type
+            // Draw normal ghost with color based on type
             switch (this.type) {
                 case GHOST_TYPE.BLINKY:
-                    color = COLORS.BLINKY;
+                    ctx.fillStyle = COLORS.BLINKY;
                     break;
                 case GHOST_TYPE.PINKY:
-                    color = COLORS.PINKY;
+                    ctx.fillStyle = COLORS.PINKY;
                     break;
                 case GHOST_TYPE.INKY:
-                    color = COLORS.INKY;
+                    ctx.fillStyle = COLORS.INKY;
                     break;
                 case GHOST_TYPE.CLYDE:
-                    color = COLORS.CLYDE;
+                    ctx.fillStyle = COLORS.CLYDE;
                     break;
             }
         }
         
-        ctx.fillStyle = color;
-        
-        // Draw ghost body (semi-circle + rectangle with wavy bottom)
-        const radius = SCALED_TILE_SIZE / 2;
-        
-        // Draw semi-circle for top half
+        // Draw ghost body
         ctx.beginPath();
-        ctx.arc(0, 0, radius, Math.PI, 0, false);
-        ctx.lineTo(radius, radius);
         
-        // Draw wavy bottom
-        const waveHeight = radius / 4;
-        const waveCount = 3;
-        const waveWidth = (radius * 2) / waveCount;
+        // Draw semi-circle for the top of the ghost
+        ctx.arc(
+            this.x,
+            this.y,
+            SCALED_TILE_SIZE / 2,
+            Math.PI,
+            0,
+            false
+        );
         
-        // Animation for the waves
-        const waveOffset = Math.floor(Date.now() / 200) % 2 === 0 ? 0 : waveWidth / 2;
+        // Draw the bottom of the ghost with waves
+        const ghostBottom = this.y + SCALED_TILE_SIZE / 2;
+        const waveHeight = SCALED_TILE_SIZE / 4;
+        const ghostLeft = this.x - SCALED_TILE_SIZE / 2;
+        const ghostWidth = SCALED_TILE_SIZE;
         
-        for (let i = 0; i < waveCount; i++) {
-            const x = radius - (i * waveWidth) - waveOffset;
-            ctx.lineTo(x, radius + waveHeight);
-            ctx.lineTo(x - waveWidth / 2, radius);
-        }
+        // Draw wavy bottom (3 waves)
+        ctx.lineTo(ghostLeft + ghostWidth, ghostBottom);
+        ctx.lineTo(ghostLeft + ghostWidth * 5/6, ghostBottom - waveHeight);
+        ctx.lineTo(ghostLeft + ghostWidth * 4/6, ghostBottom);
+        ctx.lineTo(ghostLeft + ghostWidth * 3/6, ghostBottom - waveHeight);
+        ctx.lineTo(ghostLeft + ghostWidth * 2/6, ghostBottom);
+        ctx.lineTo(ghostLeft + ghostWidth * 1/6, ghostBottom - waveHeight);
+        ctx.lineTo(ghostLeft, ghostBottom);
         
-        ctx.lineTo(-radius, radius);
         ctx.closePath();
         ctx.fill();
+        
+        // Draw eyes (unless frightened and blinking)
+        if (!this.frightened || (this.frightened && this.blinking)) {
+            this.drawEyes(ctx);
+        }
+        
+        // Draw mouth for frightened ghost
+        if (this.frightened) {
+            ctx.fillStyle = '#FFFFFF';
+            
+            // Draw mouth
+            if (!this.blinking) {
+                ctx.beginPath();
+                ctx.moveTo(this.x - SCALED_TILE_SIZE / 4, this.y + SCALED_TILE_SIZE / 6);
+                ctx.lineTo(this.x - SCALED_TILE_SIZE / 12, this.y + SCALED_TILE_SIZE / 12);
+                ctx.lineTo(this.x + SCALED_TILE_SIZE / 12, this.y + SCALED_TILE_SIZE / 12);
+                ctx.lineTo(this.x + SCALED_TILE_SIZE / 4, this.y + SCALED_TILE_SIZE / 6);
+                ctx.lineTo(this.x + SCALED_TILE_SIZE / 12, this.y + SCALED_TILE_SIZE / 4);
+                ctx.lineTo(this.x - SCALED_TILE_SIZE / 12, this.y + SCALED_TILE_SIZE / 4);
+                ctx.closePath();
+                ctx.fill();
+            }
+        }
+        
+        ctx.restore();
     }
 
     /**
@@ -700,62 +695,85 @@ class Ghost {
      * @param {CanvasRenderingContext2D} ctx - Canvas context
      */
     drawEyes(ctx) {
-        const eyeRadius = SCALED_TILE_SIZE / 6;
-        const pupilRadius = eyeRadius / 2;
-        const eyeOffset = SCALED_TILE_SIZE / 5;
-        
         // Draw white part of eyes
         ctx.fillStyle = '#FFFFFF';
+        
+        // Left eye
         ctx.beginPath();
-        ctx.arc(-eyeOffset, -eyeOffset, eyeRadius, 0, Math.PI * 2);
+        ctx.arc(
+            this.x - SCALED_TILE_SIZE / 6,
+            this.y - SCALED_TILE_SIZE / 6,
+            SCALED_TILE_SIZE / 6,
+            0,
+            Math.PI * 2
+        );
         ctx.fill();
         
+        // Right eye
         ctx.beginPath();
-        ctx.arc(eyeOffset, -eyeOffset, eyeRadius, 0, Math.PI * 2);
+        ctx.arc(
+            this.x + SCALED_TILE_SIZE / 6,
+            this.y - SCALED_TILE_SIZE / 6,
+            SCALED_TILE_SIZE / 6,
+            0,
+            Math.PI * 2
+        );
         ctx.fill();
         
-        // Determine pupil position based on direction
+        // Draw pupils (black part of eyes)
+        ctx.fillStyle = '#000000';
+        
+        // Determine pupil offset based on direction
         let pupilOffsetX = 0;
         let pupilOffsetY = 0;
         
         switch (this.direction) {
             case DIRECTION.UP:
-                pupilOffsetY = -pupilRadius;
+                pupilOffsetY = -SCALED_TILE_SIZE / 12;
                 break;
             case DIRECTION.RIGHT:
-                pupilOffsetX = pupilRadius;
+                pupilOffsetX = SCALED_TILE_SIZE / 12;
                 break;
             case DIRECTION.DOWN:
-                pupilOffsetY = pupilRadius;
+                pupilOffsetY = SCALED_TILE_SIZE / 12;
                 break;
             case DIRECTION.LEFT:
-                pupilOffsetX = -pupilRadius;
+                pupilOffsetX = -SCALED_TILE_SIZE / 12;
                 break;
         }
         
-        // Draw pupils
-        ctx.fillStyle = '#0000FF';
+        // Left pupil
         ctx.beginPath();
-        ctx.arc(-eyeOffset + pupilOffsetX, -eyeOffset + pupilOffsetY, pupilRadius, 0, Math.PI * 2);
+        ctx.arc(
+            this.x - SCALED_TILE_SIZE / 6 + pupilOffsetX,
+            this.y - SCALED_TILE_SIZE / 6 + pupilOffsetY,
+            SCALED_TILE_SIZE / 12,
+            0,
+            Math.PI * 2
+        );
         ctx.fill();
         
+        // Right pupil
         ctx.beginPath();
-        ctx.arc(eyeOffset + pupilOffsetX, -eyeOffset + pupilOffsetY, pupilRadius, 0, Math.PI * 2);
+        ctx.arc(
+            this.x + SCALED_TILE_SIZE / 6 + pupilOffsetX,
+            this.y - SCALED_TILE_SIZE / 6 + pupilOffsetY,
+            SCALED_TILE_SIZE / 12,
+            0,
+            Math.PI * 2
+        );
         ctx.fill();
     }
 }
 
-// Ghost manager class
+/**
+ * Ghost Manager class to manage all ghosts
+ */
 class GhostManager {
     constructor() {
-        this.ghosts = [
-            new Ghost(GHOST_TYPE.BLINKY),
-            new Ghost(GHOST_TYPE.PINKY),
-            new Ghost(GHOST_TYPE.INKY),
-            new Ghost(GHOST_TYPE.CLYDE)
-        ];
+        this.ghosts = [];
         this.modeTimer = 0;
-        this.currentModeIndex = 0;
+        this.modeIndex = 0;
         this.modeTimings = [];
     }
 
@@ -763,9 +781,20 @@ class GhostManager {
      * Initialize all ghosts
      */
     init() {
+        // Create ghosts
+        this.ghosts = [
+            new Ghost(GHOST_TYPE.BLINKY),
+            new Ghost(GHOST_TYPE.PINKY),
+            new Ghost(GHOST_TYPE.INKY),
+            new Ghost(GHOST_TYPE.CLYDE)
+        ];
+        
+        // Initialize each ghost
         this.ghosts.forEach(ghost => ghost.init());
+        
+        // Reset mode timer
         this.modeTimer = 0;
-        this.currentModeIndex = 0;
+        this.modeIndex = 0;
     }
 
     /**
@@ -773,18 +802,25 @@ class GhostManager {
      */
     reset() {
         this.ghosts.forEach(ghost => ghost.reset());
+        
+        // Reset mode timer
         this.modeTimer = 0;
-        this.currentModeIndex = 0;
+        this.modeIndex = 0;
     }
 
     /**
-     * Set the mode timings based on the current level
-     * @param {number} level - Current game level
+     * Set mode timings based on level
+     * @param {number} level - Current level
      */
     setModeTimings(level) {
-        this.modeTimings = getGhostModeTimings(level);
-        this.currentModeIndex = 0;
-        this.modeTimer = 0;
+        // Get the appropriate mode timings for the level
+        if (level <= 1) {
+            this.modeTimings = GHOST_MODE_TIMINGS[0];
+        } else if (level <= 4) {
+            this.modeTimings = GHOST_MODE_TIMINGS[1];
+        } else {
+            this.modeTimings = GHOST_MODE_TIMINGS[2];
+        }
     }
 
     /**
@@ -796,99 +832,110 @@ class GhostManager {
      * @param {Object} levelConfig - Level configuration
      */
     update(deltaTime, pacman, dotsEaten, totalDots, levelConfig) {
-        // Update ghost mode timer
+        // Update mode timer
         this.updateModeTimer(deltaTime);
         
         // Update each ghost
         this.ghosts.forEach(ghost => {
             ghost.update(deltaTime, pacman, this.ghosts, dotsEaten, totalDots, levelConfig);
+            
+            // Check for collision with Pac-Man
+            this.checkPacManCollision(ghost, pacman);
         });
-        
-        // Check for collisions with Pac-Man
-        this.checkPacManCollisions(pacman);
     }
 
     /**
-     * Update the ghost mode timer
+     * Update the mode timer and change ghost modes accordingly
      * @param {number} deltaTime - Time elapsed since the last update
      */
     updateModeTimer(deltaTime) {
-        if (this.modeTimings.length === 0) {
+        // Don't update mode timer if all ghosts are frightened or eaten
+        if (this.ghosts.every(ghost => ghost.frightened || ghost.eaten || ghost.mode === GHOST_MODE.HOUSE || ghost.mode === GHOST_MODE.LEAVING_HOUSE)) {
             return;
         }
         
+        // Update timer
         this.modeTimer += deltaTime;
         
-        // Check if it's time to switch modes
-        const currentMode = this.modeTimings[this.currentModeIndex];
-        
-        if (this.modeTimer >= currentMode.duration) {
+        // Check if it's time to change mode
+        if (this.modeIndex < this.modeTimings.length && this.modeTimer >= this.modeTimings[this.modeIndex].duration) {
+            // Reset timer
             this.modeTimer = 0;
-            this.currentModeIndex = (this.currentModeIndex + 1) % this.modeTimings.length;
             
-            // Update ghost modes
-            const newMode = this.modeTimings[this.currentModeIndex].mode;
+            // Get next mode
+            const nextMode = this.modeTimings[this.modeIndex].mode;
             
+            // Update ghosts that are not frightened, eaten, or in the house
             this.ghosts.forEach(ghost => {
-                // Only update ghosts that are not frightened, eaten, or in the house
-                if (!ghost.frightened && !ghost.eaten && 
-                    ghost.mode !== GHOST_MODE.HOUSE && 
-                    ghost.mode !== GHOST_MODE.LEAVING_HOUSE) {
-                    ghost.mode = newMode;
+                if (!ghost.frightened && !ghost.eaten && ghost.mode !== GHOST_MODE.HOUSE && ghost.mode !== GHOST_MODE.LEAVING_HOUSE) {
+                    ghost.previousMode = ghost.mode;
+                    ghost.mode = nextMode;
+                    
+                    // Reverse direction when changing modes
                     ghost.reverseDirection();
                 }
             });
+            
+            // Move to next mode
+            this.modeIndex++;
         }
     }
 
     /**
-     * Check for collisions between ghosts and Pac-Man
+     * Make all ghosts enter frightened mode
+     * @param {number} duration - Duration of frightened mode in milliseconds
+     */
+    enterFrightenedMode(duration) {
+        this.ghosts.forEach(ghost => {
+            // Only ghosts that are not eaten or in the house can be frightened
+            if (!ghost.eaten && ghost.mode !== GHOST_MODE.HOUSE && ghost.mode !== GHOST_MODE.LEAVING_HOUSE) {
+                ghost.previousMode = ghost.mode;
+                ghost.frightened = true;
+                ghost.blinkTimer = 0;
+                ghost.blinking = false;
+                
+                // Reverse direction when entering frightened mode
+                ghost.reverseDirection();
+            }
+        });
+    }
+
+    /**
+     * Check for collision between a ghost and Pac-Man
+     * @param {Object} ghost - Ghost object
      * @param {Object} pacman - Pac-Man object
      */
-    checkPacManCollisions(pacman) {
+    checkPacManCollision(ghost, pacman) {
+        // Skip if Pac-Man is dying
         if (pacman.isDying) {
             return;
         }
         
-        const pacmanRect = {
-            x: pacman.x - SCALED_TILE_SIZE / 2,
-            y: pacman.y - SCALED_TILE_SIZE / 2,
-            width: SCALED_TILE_SIZE,
-            height: SCALED_TILE_SIZE
-        };
+        // Calculate distance between ghost and Pac-Man
+        const distance = calculateDistance(
+            { x: ghost.x, y: ghost.y },
+            { x: pacman.x, y: pacman.y }
+        );
         
-        for (const ghost of this.ghosts) {
-            const ghostRect = {
-                x: ghost.x - SCALED_TILE_SIZE / 2,
-                y: ghost.y - SCALED_TILE_SIZE / 2,
-                width: SCALED_TILE_SIZE,
-                height: SCALED_TILE_SIZE
-            };
-            
-            if (checkCollision(pacmanRect, ghostRect)) {
-                if (ghost.frightened) {
-                    // Pac-Man eats the ghost
-                    ghost.getEaten();
-                    pacman.ghostsEaten++;
-                    pacman.score += SCORE.GHOST[Math.min(pacman.ghostsEaten - 1, 3)];
-                    
-                    // Play ghost eaten sound
-                    audioManager.play('ghost');
-                } else if (!ghost.eaten) {
-                    // Ghost catches Pac-Man
-                    pacman.die();
-                    return;
-                }
+        // Check for collision (if distance is less than sum of radii)
+        if (distance < SCALED_TILE_SIZE * 0.8) {
+            if (ghost.frightened) {
+                // Pac-Man eats the ghost
+                ghost.eaten = true;
+                ghost.frightened = false;
+                
+                // Add score based on number of ghosts eaten
+                const scoreIndex = Math.min(pacman.ghostsEaten, SCORE.GHOST.length - 1);
+                pacman.score += SCORE.GHOST[scoreIndex];
+                pacman.ghostsEaten++;
+                
+                // Play ghost eaten sound
+                audioManager.play('eatGhost');
+            } else if (!ghost.eaten) {
+                // Ghost catches Pac-Man
+                pacman.die();
             }
         }
-    }
-
-    /**
-     * Enter frightened mode for all ghosts
-     * @param {number} duration - Duration of frightened mode in milliseconds
-     */
-    enterFrightenedMode(duration) {
-        this.ghosts.forEach(ghost => ghost.enterFrightenedMode(duration));
     }
 
     /**
@@ -896,6 +943,7 @@ class GhostManager {
      * @param {CanvasRenderingContext2D} ctx - Canvas context
      */
     draw(ctx) {
+        // Draw ghosts in order (so Blinky is always on top)
         this.ghosts.forEach(ghost => ghost.draw(ctx));
     }
 }

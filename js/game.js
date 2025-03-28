@@ -21,6 +21,7 @@ class Game {
         this.readyTimer = 0;
         this.levelCompleteTimer = 0;
         this.gameOverTimer = 0;
+        this.totalDots = 0; // Track the total number of dots in the level
     }
 
     /**
@@ -42,6 +43,9 @@ class Game {
         
         // Initialize map
         gameMap.init();
+        
+        // Store the total number of dots at the start
+        this.totalDots = gameMap.dotCount;
         
         // Initialize Pac-Man
         pacman.resetGame();
@@ -160,6 +164,9 @@ class Game {
         // Reset map
         gameMap.init();
         
+        // Store the total number of dots at the start
+        this.totalDots = gameMap.dotCount;
+        
         // Reset Pac-Man
         pacman.resetGame();
         
@@ -189,6 +196,9 @@ class Game {
         
         // Reset map
         gameMap.reset();
+        
+        // Store the total number of dots at the start
+        this.totalDots = gameMap.dotCount;
         
         // Reset Pac-Man position
         pacman.reset();
@@ -706,7 +716,7 @@ class Game {
             deltaTime,
             pacman,
             pacman.dotCount,
-            gameMap.dotCount,
+            this.totalDots,
             getLevelConfig(this.level)
         );
         
@@ -714,7 +724,9 @@ class Game {
         this.updateFruit(deltaTime);
         
         // Check for level complete - fixed to require eating all dots
-        if (pacman.dotCount === gameMap.dotCount) {
+        // Compare remaining dots in the map with the total dots at the start
+        const dotsRemaining = this.totalDots - pacman.dotCount;
+        if (dotsRemaining <= 0) {
             this.onLevelComplete();
         }
         
@@ -762,7 +774,6 @@ class Game {
         
         // Determine when to show fruit based on dots eaten
         const dotsEaten = pacman.dotCount;
-        const totalDots = gameMap.dotCount;
         
         // Show first fruit at 70 dots eaten
         if (!this.fruitVisible && !this.fruitEaten && dotsEaten >= 70 && dotsEaten < 170) {
