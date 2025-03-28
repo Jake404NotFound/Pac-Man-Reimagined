@@ -337,8 +337,10 @@ class Ghost {
         
         // Move in the current direction
         const dirVector = directionToVector(this.direction);
-        const nextX = this.x + dirVector.x * this.speed * (deltaTime / 1000);
-        const nextY = this.y + dirVector.y * this.speed * (deltaTime / 1000);
+        // Adjust speed to account for deltaTime (60 is the target FPS)
+        const speedFactor = 60 * (deltaTime / 1000);
+        const nextX = this.x + dirVector.x * this.speed * speedFactor;
+        const nextY = this.y + dirVector.y * this.speed * speedFactor;
         const nextGrid = pixelToGrid(nextX, nextY);
         
         // Check if the next position is valid
@@ -367,7 +369,9 @@ class Ghost {
         if (this.mode === GHOST_MODE.HOUSE) {
             // Simple up and down bobbing motion
             const dirVector = directionToVector(this.direction);
-            this.y += dirVector.y * this.speed * (deltaTime / 1000);
+            // Adjust speed to account for deltaTime (60 is the target FPS)
+            const speedFactor = 60 * (deltaTime / 1000);
+            this.y += dirVector.y * this.speed * speedFactor;
             
             // Reverse direction at boundaries
             const spawnPixelY = this.housePosition.y;
@@ -400,18 +404,21 @@ class Ghost {
             const dx = targetX - this.x;
             const dy = targetY - this.y;
             
+            // Adjust speed to account for deltaTime (60 is the target FPS)
+            const speedFactor = 60 * (deltaTime / 1000);
+            
             // Determine primary movement direction
             if (Math.abs(dx) > 2) {
                 // Need to move horizontally first
                 this.direction = dx > 0 ? DIRECTION.RIGHT : DIRECTION.LEFT;
                 const dirVector = directionToVector(this.direction);
-                this.x += dirVector.x * this.speed * (deltaTime / 1000);
+                this.x += dirVector.x * this.speed * speedFactor;
             } else {
                 // Aligned horizontally, move up
                 this.x = targetX; // Snap to exact X position
                 this.direction = DIRECTION.UP;
                 const dirVector = directionToVector(this.direction);
-                this.y += dirVector.y * this.speed * (deltaTime / 1000);
+                this.y += dirVector.y * this.speed * speedFactor;
                 
                 // Check if we've reached the target position
                 if (this.y <= targetY) {
