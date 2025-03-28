@@ -139,6 +139,12 @@ class Ghost {
                 this.mode = GHOST_MODE.HOUSE;
                 this.direction = DIRECTION.DOWN;
                 this.nextDirection = DIRECTION.DOWN;
+                
+                // Optional: Snap to a specific spot inside the house
+                const spawn = gameMap.ghostSpawns[this.type];
+                const spawnPixel = gridToPixel(spawn.row, spawn.column);
+                this.x = spawnPixel.x;
+                this.y = spawnPixel.y;
             }
             
             return;
@@ -158,24 +164,30 @@ class Ghost {
             // Check if the ghost should leave the house
             if (this.shouldLeaveHouse(dotsEaten)) {
                 this.mode = GHOST_MODE.LEAVING_HOUSE;
-                this.direction = DIRECTION.UP;
-                this.nextDirection = DIRECTION.UP;
+                
+                // Initial direction should be towards the door's horizontal center, then UP
+                const doorTile = gameMap.ghostDoorTiles[0]; // Assuming door is at [0]
+                const doorPos = gridToPixel(doorTile.row, doorTile.column); // Targets row 13, col 13
+                const houseCenterDoorX = gridToPixel(13, 13.5).x; // Center X between door tiles
+                
+                if (Math.abs(this.x - houseCenterDoorX) < 5) { // If already near center X
+                    this.x = houseCenterDoorX; // Snap X
+                    this.direction = DIRECTION.UP;
+                    this.nextDirection = DIRECTION.UP;
+                } else { // Move horizontally first
+                    this.direction = this.x < houseCenterDoorX ? DIRECTION.RIGHT : DIRECTION.LEFT;
+                    this.nextDirection = this.direction;
+                }
+                
+                // Force vertical alignment if needed, assuming ghosts start below door level
+                const spawn = gameMap.ghostSpawns[this.type];
+                this.y = Math.max(this.y, gridToPixel(spawn.row, spawn.column).y);
             }
             
             return;
         }
         
-        // Handle leaving house mode
-        if (this.mode === GHOST_MODE.LEAVING_HOUSE) {
-            // If the ghost has reached the ghost house door
-            if (this.isAtGhostHouseDoor()) {
-                this.mode = GHOST_MODE.SCATTER;
-                this.direction = DIRECTION.LEFT;
-                this.nextDirection = DIRECTION.LEFT;
-            }
-            
-            return;
-        }
+        // REMOVED: Handle leaving house mode - now handled entirely in moveInHouse
         
         // Check if Blinky should enter Elroy mode
         if (this.type === GHOST_TYPE.BLINKY) {
@@ -354,34 +366,78 @@ class Ghost {
      * @param {number} deltaTime - Time elapsed since the last update
      */
     moveInHouse(deltaTime) {
-        // Move up and down in the ghost house
-        const dirVector = directionToVector(this.direction);
-        this.x += dirVector.x * this.speed * 0.5; // Slower movement in house
-        this.y += dirVector.y * this.speed * 0.5;
+        const houseSpeed = this.speed * 0.5; // Slower movement in house
         
-        // If leaving the house, move towards the door
-        if (this.mode === GHOST_MODE.LEAVING_HOUSE) {
-            const doorTile = gameMap.ghostDoorTiles[0];
-            const doorPos = gridToPixel(doorTile.row, doorTile.column);
+        // If just bobbing up and down in HOUSE mode
+        if (this.mode === GHOST_MODE.HOUSE) {
+            const dirVector = directionToVector(this.direction);
+            this.y += dirVector.y * houseSpeed;
             
-            // If at the same column as the door, move up
-            if (Math.abs(this.x - doorPos.x) < 2) {
-                this.x = doorPos.x;
+            // Reverse direction at boundaries
+            const spawnPixelY = this.housePosition.y; // Use initial spawn Y as center
+            if (this.y <= spawnPixelY - 8) {
+                this.y = spawnPixelY - 8;
+                this.direction = DIRECTION.DOWN;
+                this.nextDirection = DIRECTION.DOWN;
+            } else if (this.y >= spawnPixelY + 8) {
+                this.y = spawnPixelY + 8;
                 this.direction = DIRECTION.UP;
                 this.nextDirection = DIRECTION.UP;
-                
-                // If close enough to the door vertically, guide the ghost through the door
-                // but don't force position or mode change
-                if (Math.abs(this.y - doorPos.y) < 10) {
-                    // Slightly increase upward movement speed to help ghost pass through door
-                    this.y += dirVector.y * this.speed * 0.5;
-                }
-            } 
-            // Otherwise, move horizontally towards the door
-            else if (this.y <= doorPos.y) {
-                this.y = doorPos.y;
-                this.direction = this.x < doorPos.x ? DIRECTION.RIGHT : DIRECTION.LEFT;
+            }
+            
+            // Also add slight horizontal bobble if desired, or snap X
+            this.x = this.housePosition.x; // Keep X fixed to spawn column
+            
+            return; // Don't execute LEAVING_HOUSE logic
+        }
+        
+        // --- Logic for LEAVING_HOUSE ---
+        if (this.mode === GHOST_MODE.LEAVING_HOUSE) {
+            // Target position: Center X between door tiles (13.5), and Row above door (13)
+            const targetX = gridToPixel(13, 13.5).x;
+            const targetY = gridToPixel(13, 13.5).y; // Y-coord of the tile *above* the door gap
+            const exitY = targetY - SCALED_TILE_SIZE / 2; // The exact Y coord to place ghost when exiting
+            
+            // 1. Move horizontally towards target X if not aligned
+            if (Math.abs(this.x - targetX) > 1) {
+                this.direction = this.x < targetX ? DIRECTION.RIGHT : DIRECTION.LEFT;
                 this.nextDirection = this.direction;
+                const dirVector = directionToVector(this.direction);
+                this.x += dirVector.x * houseSpeed;
+                
+                // Prevent overshooting
+                if ((this.direction === DIRECTION.RIGHT && this.x > targetX) ||
+                    (this.direction === DIRECTION.LEFT && this.x < targetX)) {
+                    this.x = targetX;
+                }
+                
+                // Ensure Y stays aligned with spawn row while moving horizontally initially
+                const spawn = gameMap.ghostSpawns[this.type];
+                this.y = Math.max(this.y, gridToPixel(spawn.row, spawn.column).y);
+            }
+            // 2. Once horizontally aligned, move vertically UP towards target Y
+            else {
+                this.x = targetX; // Snap X to center
+                this.direction = DIRECTION.UP;
+                this.nextDirection = DIRECTION.UP;
+                const dirVector = directionToVector(this.direction);
+                this.y += dirVector.y * houseSpeed; // Move UP
+                
+                // 3. Check if ghost has reached or passed the exit Y position
+                if (this.y <= exitY) {
+                    this.y = exitY; // Snap to exact exit position
+                    this.mode = this.previousMode; // Exit to Scatter or Chase
+                    
+                    // Choose initial direction outside: typically LEFT for Pinky/Inky/Clyde
+                    this.direction = DIRECTION.LEFT;
+                    this.nextDirection = DIRECTION.LEFT;
+                    
+                    // Ensure previousMode is set correctly if exiting directly from HOUSE
+                    if (this.previousMode === GHOST_MODE.HOUSE) {
+                        this.previousMode = GHOST_MODE.SCATTER; // Default to scatter after leaving
+                        this.mode = GHOST_MODE.SCATTER;
+                    }
+                }
             }
         }
     }
@@ -510,8 +566,7 @@ class Ghost {
         const doorTile = gameMap.ghostDoorTiles[0];
         const doorPos = gridToPixel(doorTile.row, doorTile.column);
         
-        // Check if ghost is at the door position (not above it)
-        // This ensures consistent detection with the actual door position
+        // Check if ghost is at the door position
         return Math.abs(this.x - doorPos.x) < 5 && Math.abs(this.y - doorPos.y) < 5;
     }
 
