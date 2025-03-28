@@ -305,12 +305,8 @@ class GameMap {
     drawWall(ctx, row, column) {
         const x = column * SCALED_TILE_SIZE;
         const y = row * SCALED_TILE_SIZE;
-        
-        ctx.fillStyle = COLORS.WALL;
-        ctx.fillRect(x, y, SCALED_TILE_SIZE, SCALED_TILE_SIZE);
-        
-        // Add some detail to the walls based on adjacent walls
-        ctx.fillStyle = '#000';
+        const size = SCALED_TILE_SIZE;
+        const borderWidth = size / 6; // Thickness of the wall border
         
         // Check adjacent tiles to determine wall shape
         const hasWallAbove = this.getTileAt(row - 1, column) === TILE_TYPE.WALL;
@@ -318,28 +314,45 @@ class GameMap {
         const hasWallLeft = this.getTileAt(row, column - 1) === TILE_TYPE.WALL;
         const hasWallRight = this.getTileAt(row, column + 1) === TILE_TYPE.WALL;
         
-        // Draw inner corners if needed
-        const cornerSize = SCALED_TILE_SIZE / 4;
+        // Draw the hollow wall with blue border
+        ctx.fillStyle = COLORS.WALL;
         
+        // Draw the border pieces based on adjacent walls
+        // Top border
+        if (!hasWallAbove) {
+            ctx.fillRect(x, y, size, borderWidth);
+        }
+        
+        // Bottom border
+        if (!hasWallBelow) {
+            ctx.fillRect(x, y + size - borderWidth, size, borderWidth);
+        }
+        
+        // Left border
+        if (!hasWallLeft) {
+            ctx.fillRect(x, y, borderWidth, size);
+        }
+        
+        // Right border
+        if (!hasWallRight) {
+            ctx.fillRect(x + size - borderWidth, y, borderWidth, size);
+        }
+        
+        // Draw corner pieces
         if (!hasWallAbove && !hasWallLeft) {
-            ctx.fillRect(x, y, cornerSize, cornerSize);
+            ctx.fillRect(x, y, borderWidth, borderWidth);
         }
         
         if (!hasWallAbove && !hasWallRight) {
-            ctx.fillRect(x + SCALED_TILE_SIZE - cornerSize, y, cornerSize, cornerSize);
+            ctx.fillRect(x + size - borderWidth, y, borderWidth, borderWidth);
         }
         
         if (!hasWallBelow && !hasWallLeft) {
-            ctx.fillRect(x, y + SCALED_TILE_SIZE - cornerSize, cornerSize, cornerSize);
+            ctx.fillRect(x, y + size - borderWidth, borderWidth, borderWidth);
         }
         
         if (!hasWallBelow && !hasWallRight) {
-            ctx.fillRect(
-                x + SCALED_TILE_SIZE - cornerSize, 
-                y + SCALED_TILE_SIZE - cornerSize, 
-                cornerSize, 
-                cornerSize
-            );
+            ctx.fillRect(x + size - borderWidth, y + size - borderWidth, borderWidth, borderWidth);
         }
     }
 

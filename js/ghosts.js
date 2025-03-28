@@ -464,6 +464,20 @@ class Ghost {
             return true;
         }
         
+        // Add a timer-based release mechanism
+        this.releaseTimer += 1;
+        
+        // Force release after a certain time
+        const forceReleaseTime = {
+            [GHOST_TYPE.PINKY]: 3 * 60, // 3 seconds at 60 fps
+            [GHOST_TYPE.INKY]: 5 * 60,  // 5 seconds at 60 fps
+            [GHOST_TYPE.CLYDE]: 7 * 60  // 7 seconds at 60 fps
+        };
+        
+        if (this.releaseTimer >= forceReleaseTime[this.type]) {
+            return true;
+        }
+        
         // Check dot counter for other ghosts
         switch (this.type) {
             case GHOST_TYPE.PINKY:

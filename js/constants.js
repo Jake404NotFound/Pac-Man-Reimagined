@@ -1,6 +1,6 @@
 // Game constants
 const TILE_SIZE = 8; // Base tile size
-const SCALE = 3; // Scale factor for the game
+const SCALE = 2; // Scale factor for the game (reduced from 3 to 2)
 const SCALED_TILE_SIZE = TILE_SIZE * SCALE;
 const ROWS = 36; // Number of rows in the game map
 const COLUMNS = 28; // Number of columns in the game map
