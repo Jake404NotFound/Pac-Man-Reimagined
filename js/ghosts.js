@@ -369,6 +369,18 @@ class Ghost {
                 this.x = doorPos.x;
                 this.direction = DIRECTION.UP;
                 this.nextDirection = DIRECTION.UP;
+                
+                // If close enough to the door vertically, force position to be just above the door
+                // This ensures ghosts can exit the house properly
+                if (Math.abs(this.y - doorPos.y) < 10) {
+                    this.y = doorPos.y - SCALED_TILE_SIZE / 2;
+                    // Force transition to scatter mode once positioned above the door
+                    if (Math.abs(this.y - (doorPos.y - SCALED_TILE_SIZE / 2)) < 2) {
+                        this.mode = GHOST_MODE.SCATTER;
+                        this.direction = DIRECTION.LEFT;
+                        this.nextDirection = DIRECTION.LEFT;
+                    }
+                }
             } 
             // Otherwise, move horizontally towards the door
             else if (this.y <= doorPos.y) {
@@ -503,7 +515,8 @@ class Ghost {
         const doorTile = gameMap.ghostDoorTiles[0];
         const doorPos = gridToPixel(doorTile.row, doorTile.column);
         
-        return Math.abs(this.x - doorPos.x) < 2 && Math.abs(this.y - doorPos.y) < 2;
+        // Increased tolerance for door detection to make it easier for ghosts to exit
+        return Math.abs(this.x - doorPos.x) < 5 && Math.abs(this.y - doorPos.y) < 5;
     }
 
     /**
