@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pac-Man Reimagined</title>
+    <link rel="stylesheet" href="css/game.css">
+    <link rel="stylesheet" href="assets/fonts/font.css">
+</head>
+<body>
+    <div class="game-container">
+        <div class="game-header">
+            <div class="score-container">
+                <div class="score-label">SCORE</div>
+                <div id="score">0</div>
+            </div>
+            <div class="high-score-container">
+                <div class="high-score-label">HIGH SCORE</div>
+                <div id="highScore">0</div>
+            </div>
+            <div class="lives-container">
+                <div class="lives-label">LIVES</div>
+                <div id="lives"></div>
+            </div>
+        </div>
+        
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="gameOverlay">
+            <div id="startScreen" class="overlay-screen">
+                <h1>PAC-MAN REIMAGINED</h1>
+                <p>Press ENTER to Start</p>
+                <p class="small-text">Use Arrow Keys or WASD to move</p>
+            </div>
+            
+            <div id="gameOverScreen" class="overlay-screen hidden">
+                <h1>GAME OVER</h1>
+                <p>Your Score: <span id="finalScore">0</span></p>
+                <p>Press ENTER to Play Again</p>
+            </div>
+            
+            <div id="pauseScreen" class="overlay-screen hidden">
+                <h1>PAUSED</h1>
+                <p>Press P to Resume</p>
+            </div>
+            
+            <div id="levelCompleteScreen" class="overlay-screen hidden">
+                <h1>LEVEL COMPLETE!</h1>
+                <p>Press ENTER to Continue</p>
+            </div>
+            
+            <div id="leaderboardScreen" class="overlay-screen hidden">
+                <h1>LEADERBOARD</h1>
+                <div id="leaderboardEntries"></div>
+                <p>Press ESC to Return</p>
+            </div>
+        </div>
+    </div>
+    
+    <script src="js/constants.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/map.js"></script>
+    <script src="js/pacman.js"></script>
+    <script src="js/ghosts.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/leaderboard.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
