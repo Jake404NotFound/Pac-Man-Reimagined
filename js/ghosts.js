@@ -504,6 +504,10 @@ class Ghost {
                     const newPos = gridToPixel(oppositeTunnel.row, oppositeTunnel.column);
                     this.x = newPos.x;
                     this.y = newPos.y;
+                    
+                    // Maintain the same direction after teleporting
+                    // This ensures ghosts continue in the same direction through the tunnel
+                    this.nextDirection = this.direction;
                 }
             }
         }

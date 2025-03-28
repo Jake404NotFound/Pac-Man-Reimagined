@@ -132,65 +132,65 @@ const LEVEL_SPECS = [
     },
     // Levels 5-7
     {
-        ghostSpeed: 0.95,
+        ghostSpeed: 1.05, // Increased from 0.95
         pacmanSpeed: 1.0,
         dotCount: 244,
         elroy1DotsLeft: 40,
-        elroy1Speed: 1.0,
+        elroy1Speed: 1.1, // Increased from 1.0
         elroy2DotsLeft: 20,
-        elroy2Speed: 1.05,
+        elroy2Speed: 1.15, // Increased from 1.05
         frightTime: 3000,
         frightFlashes: 5,
         fruit: 3 // Apple
     },
     // Levels 8-10
     {
-        ghostSpeed: 0.95,
+        ghostSpeed: 1.15, // Increased from 0.95
         pacmanSpeed: 1.0,
         dotCount: 244,
         elroy1DotsLeft: 40,
-        elroy1Speed: 1.0,
+        elroy1Speed: 1.2, // Increased from 1.0
         elroy2DotsLeft: 20,
-        elroy2Speed: 1.05,
+        elroy2Speed: 1.25, // Increased from 1.05
         frightTime: 2000,
         frightFlashes: 5,
         fruit: 4 // Melon
     },
     // Levels 11-13
     {
-        ghostSpeed: 0.95,
+        ghostSpeed: 1.25, // Increased from 0.95
         pacmanSpeed: 1.0,
         dotCount: 244,
         elroy1DotsLeft: 40,
-        elroy1Speed: 1.0,
+        elroy1Speed: 1.3, // Increased from 1.0
         elroy2DotsLeft: 20,
-        elroy2Speed: 1.05,
+        elroy2Speed: 1.35, // Increased from 1.05
         frightTime: 1000,
         frightFlashes: 3,
         fruit: 5 // Galaxian
     },
     // Levels 14-16
     {
-        ghostSpeed: 0.95,
+        ghostSpeed: 1.35, // Increased from 0.95
         pacmanSpeed: 1.0,
         dotCount: 244,
         elroy1DotsLeft: 40,
-        elroy1Speed: 1.0,
+        elroy1Speed: 1.4, // Increased from 1.0
         elroy2DotsLeft: 20,
-        elroy2Speed: 1.05,
+        elroy2Speed: 1.45, // Increased from 1.05
         frightTime: 1000,
         frightFlashes: 3,
         fruit: 6 // Bell
     },
     // Levels 17+
     {
-        ghostSpeed: 0.95,
+        ghostSpeed: 1.45, // Increased from 0.95
         pacmanSpeed: 1.0,
         dotCount: 244,
         elroy1DotsLeft: 40,
-        elroy1Speed: 1.0,
+        elroy1Speed: 1.5, // Increased from 1.0
         elroy2DotsLeft: 20,
-        elroy2Speed: 1.05,
+        elroy2Speed: 1.55, // Increased from 1.05
         frightTime: 0, // No frightened mode
         frightFlashes: 0,
         fruit: 7 // Key

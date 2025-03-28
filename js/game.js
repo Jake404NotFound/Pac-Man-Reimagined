@@ -261,19 +261,12 @@ class Game {
      */
     populateLeaderboard() {
         const leaderboardEntries = document.getElementById('leaderboardEntries');
+        
+        // Clear existing entries
         leaderboardEntries.innerHTML = '';
         
         // Get leaderboard data
         const leaderboard = leaderboardManager.getLeaderboard();
-        
-        if (leaderboard.length === 0) {
-            const emptyMessage = document.createElement('div');
-            emptyMessage.textContent = 'No high scores yet!';
-            emptyMessage.style.textAlign = 'center';
-            emptyMessage.style.padding = '20px';
-            leaderboardEntries.appendChild(emptyMessage);
-            return;
-        }
         
         // Create entries
         leaderboard.forEach((entry, index) => {
@@ -290,7 +283,7 @@ class Game {
             
             const scoreElement = document.createElement('div');
             scoreElement.className = 'leaderboard-score';
-            scoreElement.textContent = formatScore(entry.score);
+            scoreElement.textContent = entry.score;
             
             entryElement.appendChild(rankElement);
             entryElement.appendChild(nameElement);
@@ -301,28 +294,23 @@ class Game {
     }
 
     /**
-     * Load the high score from storage
+     * Load high score from storage
      */
     loadHighScore() {
-        chrome.storage.local.get(['highScore'], (result) => {
-            if (result.highScore) {
-                this.highScore = result.highScore;
-                this.updateScoreDisplay();
-            }
-        });
+        const savedHighScore = localStorage.getItem('pacmanHighScore');
+        
+        if (savedHighScore) {
+            this.highScore = parseInt(savedHighScore);
+        }
     }
 
     /**
-     * Save the high score to storage
+     * Save high score to storage
      */
     saveHighScore() {
         if (this.score > this.highScore) {
             this.highScore = this.score;
-            chrome.storage.local.set({ highScore: this.highScore });
-            
-            // Add to leaderboard
-            const playerName = 'PLAYER'; // In a real game, you would prompt for a name
-            leaderboardManager.addScore(playerName, this.score);
+            localStorage.setItem('pacmanHighScore', this.highScore.toString());
         }
     }
 
@@ -330,9 +318,14 @@ class Game {
      * Update the score display
      */
     updateScoreDisplay() {
-        document.getElementById('score').textContent = formatScore(this.score);
-        document.getElementById('highScore').textContent = formatScore(this.highScore);
-        document.getElementById('finalScore').textContent = formatScore(this.score);
+        // Update score display
+        document.getElementById('score').textContent = this.score.toString().padStart(2, '0');
+        
+        // Update high score display
+        document.getElementById('highScore').textContent = this.highScore.toString().padStart(2, '0');
+        
+        // Update final score on game over screen
+        document.getElementById('finalScore').textContent = this.score;
     }
 
     /**
@@ -342,189 +335,8 @@ class Game {
         const livesContainer = document.getElementById('lives');
         livesContainer.innerHTML = '';
         
-        pacman.drawLives(this.ctx, 0, 0);
-    }
-
-    /**
-     * Game loop
-     * @param {number} timestamp - Current timestamp
-     */
-    gameLoop(timestamp) {
-        // Calculate delta time
-        const deltaTime = timestamp - this.lastFrameTime;
-        this.lastFrameTime = timestamp;
-        
-        // Clear canvas
-        this.ctx.fillStyle = '#000';
-        this.ctx.fillRect(0, 0, this.width, this.height);
-        
-        // Update game state
-        this.update(deltaTime);
-        
-        // Draw game
-        this.draw();
-        
-        // Continue game loop
-        requestAnimationFrame(this.gameLoop.bind(this));
-    }
-
-    /**
-     * Update game state
-     * @param {number} deltaTime - Time elapsed since the last update
-     */
-    update(deltaTime) {
-        // Update score display
-        this.updateScoreDisplay();
-        
-        // Update lives display
-        this.updateLivesDisplay();
-        
-        // Handle different game states
-        switch (this.state) {
-            case GAME_STATE.READY:
-                this.updateReadyState(deltaTime);
-                break;
-                
-            case GAME_STATE.PLAYING:
-                if (!this.isPaused) {
-                    this.updatePlayingState(deltaTime);
-                }
-                break;
-                
-            case GAME_STATE.DYING:
-                this.updateDyingState(deltaTime);
-                break;
-                
-            case GAME_STATE.LEVEL_COMPLETE:
-                this.updateLevelCompleteState(deltaTime);
-                break;
-                
-            case GAME_STATE.GAME_OVER:
-                this.updateGameOverState(deltaTime);
-                break;
-        }
-    }
-
-    /**
-     * Update the ready state
-     * @param {number} deltaTime - Time elapsed since the last update
-     */
-    updateReadyState(deltaTime) {
-        this.readyTimer += deltaTime;
-        
-        // Start game after 2 seconds
-        if (this.readyTimer >= 2000 && document.getElementById('startScreen').classList.contains('hidden')) {
-            this.state = GAME_STATE.PLAYING;
-        }
-    }
-
-    /**
-     * Update the playing state
-     * @param {number} deltaTime - Time elapsed since the last update
-     */
-    updatePlayingState(deltaTime) {
-        // Update Pac-Man
-        pacman.update(deltaTime);
-        
-        // Update ghosts
-        ghostManager.update(
-            deltaTime,
-            pacman,
-            pacman.dotCount,
-            gameMap.dotCount + pacman.dotCount,
-            getLevelConfig(this.level)
-        );
-        
-        // Update fruit
-        this.updateFruit(deltaTime);
-        
-        // Check for level complete
-        if (pacman.dotCount >= gameMap.dotCount) {
-            this.onLevelComplete();
-        }
-        
-        // Update score
-        this.score = pacman.score;
-    }
-
-    /**
-     * Update the dying state
-     * @param {number} deltaTime - Time elapsed since the last update
-     */
-    updateDyingState(deltaTime) {
-        // Pac-Man's death animation is handled in the Pac-Man class
-        pacman.update(deltaTime);
-    }
-
-    /**
-     * Update the level complete state
-     * @param {number} deltaTime - Time elapsed since the last update
-     */
-    updateLevelCompleteState(deltaTime) {
-        this.levelCompleteTimer += deltaTime;
-        
-        // Start next level after 3 seconds
-        if (this.levelCompleteTimer >= 3000) {
-            this.startNextLevel();
-        }
-    }
-
-    /**
-     * Update the game over state
-     * @param {number} deltaTime - Time elapsed since the last update
-     */
-    updateGameOverState(deltaTime) {
-        this.gameOverTimer += deltaTime;
-    }
-
-    /**
-     * Update the fruit
-     * @param {number} deltaTime - Time elapsed since the last update
-     */
-    updateFruit(deltaTime) {
-        // Update fruit timer
-        this.fruitTimer += deltaTime;
-        
-        // Determine when to show fruit based on dots eaten
-        const dotsEaten = pacman.dotCount;
-        const totalDots = gameMap.dotCount + pacman.dotCount;
-        
-        // Show first fruit at 70 dots eaten
-        if (!this.fruitVisible && !this.fruitEaten && dotsEaten >= 70 && dotsEaten < 170) {
-            this.showFruit();
-        }
-        
-        // Show second fruit at 170 dots eaten
-        if (!this.fruitVisible && this.fruitEaten && dotsEaten >= 170) {
-            this.showFruit();
-            this.fruitEaten = false; // Reset for next level
-        }
-        
-        // Hide fruit after 10 seconds
-        if (this.fruitVisible && this.fruitTimer >= 10000) {
-            this.hideFruit();
-        }
-        
-        // Check if Pac-Man ate the fruit
-        if (this.fruitVisible) {
-            const pacmanRect = {
-                x: pacman.x - SCALED_TILE_SIZE / 2,
-                y: pacman.y - SCALED_TILE_SIZE / 2,
-                width: SCALED_TILE_SIZE,
-                height: SCALED_TILE_SIZE
-            };
-            
-            const fruitRect = {
-                x: this.fruitPosition.x - SCALED_TILE_SIZE / 2,
-                y: this.fruitPosition.y - SCALED_TILE_SIZE / 2,
-                width: SCALED_TILE_SIZE,
-                height: SCALED_TILE_SIZE
-            };
-            
-            if (checkCollision(pacmanRect, fruitRect)) {
-                this.eatFruit();
-            }
-        }
+        // Draw Pac-Man lives
+        pacman.drawLives(this.ctx, livesContainer.offsetWidth / 2, livesContainer.offsetHeight / 2);
     }
 
     /**
@@ -534,15 +346,15 @@ class Game {
         this.fruitVisible = true;
         this.fruitTimer = 0;
         
-        // Set fruit position (middle of the ghost house)
-        const fruitRow = 17;
-        const fruitColumn = 14;
-        const fruitPos = gridToPixel(fruitRow, fruitColumn);
-        this.fruitPosition = { x: fruitPos.x, y: fruitPos.y };
+        // Set fruit position (center of the ghost house)
+        const centerRow = 17;
+        const centerColumn = 13;
+        const centerPos = gridToPixel(centerRow, centerColumn);
+        
+        this.fruitPosition = { x: centerPos.x, y: centerPos.y };
         
         // Set fruit type based on level
-        const levelConfig = getLevelConfig(this.level);
-        this.fruitType = levelConfig.fruit;
+        this.fruitType = Math.min(getLevelConfig(this.level).fruit, 7);
     }
 
     /**
@@ -553,27 +365,49 @@ class Game {
     }
 
     /**
-     * Eat the fruit
+     * Check if Pac-Man has eaten the fruit
      */
-    eatFruit() {
-        this.fruitVisible = false;
-        this.fruitEaten = true;
+    checkFruitCollision() {
+        if (!this.fruitVisible) {
+            return;
+        }
         
-        // Add score based on fruit type
-        pacman.score += SCORE.FRUIT[this.fruitType];
+        const pacmanRect = {
+            x: pacman.x - SCALED_TILE_SIZE / 2,
+            y: pacman.y - SCALED_TILE_SIZE / 2,
+            width: SCALED_TILE_SIZE,
+            height: SCALED_TILE_SIZE
+        };
         
-        // Play fruit eaten sound
-        audioManager.play('fruit');
+        const fruitRect = {
+            x: this.fruitPosition.x - SCALED_TILE_SIZE / 2,
+            y: this.fruitPosition.y - SCALED_TILE_SIZE / 2,
+            width: SCALED_TILE_SIZE,
+            height: SCALED_TILE_SIZE
+        };
+        
+        if (checkCollision(pacmanRect, fruitRect)) {
+            // Pac-Man eats the fruit
+            this.fruitVisible = false;
+            this.fruitEaten = true;
+            
+            // Add score
+            const fruitScore = SCORE.FRUIT[this.fruitType];
+            pacman.score += fruitScore;
+            
+            // Play fruit eaten sound
+            audioManager.play('fruit');
+        }
     }
 
     /**
-     * Handle Pac-Man death
+     * Called when Pac-Man's death animation is complete
      */
     onPacManDeathComplete() {
         if (pacman.lives <= 0) {
             this.gameOver();
         } else {
-            // Reset positions
+            // Reset positions for a new life
             pacman.reset();
             ghostManager.reset();
             
@@ -586,7 +420,7 @@ class Game {
     }
 
     /**
-     * Handle level complete
+     * Called when the level is complete
      */
     onLevelComplete() {
         this.state = GAME_STATE.LEVEL_COMPLETE;
@@ -595,8 +429,8 @@ class Game {
         // Show level complete screen
         document.getElementById('levelCompleteScreen').classList.remove('hidden');
         
-        // Play intermission sound
-        audioManager.play('intermission');
+        // Play level complete sound
+        audioManager.play('levelComplete');
     }
 
     /**
@@ -718,36 +552,37 @@ class Game {
                 // Add stripes
                 this.ctx.strokeStyle = '#008800';
                 this.ctx.lineWidth = 2;
-                for (let i = -2; i <= 2; i++) {
+                for (let i = 0; i < 3; i++) {
+                    const offset = (i - 1) * fruitSize * 0.2;
                     this.ctx.beginPath();
-                    this.ctx.moveTo(x + fruitSize / 2 - fruitSize * 0.4, y + fruitSize / 2 + i * fruitSize * 0.1);
-                    this.ctx.lineTo(x + fruitSize / 2 + fruitSize * 0.4, y + fruitSize / 2 + i * fruitSize * 0.1);
+                    this.ctx.moveTo(x + fruitSize * 0.1, y + fruitSize / 2 + offset);
+                    this.ctx.lineTo(x + fruitSize * 0.9, y + fruitSize / 2 + offset);
                     this.ctx.stroke();
                 }
                 break;
                 
             case 5: // Galaxian
-                this.ctx.fillStyle = '#FFFF00';
+                this.ctx.fillStyle = '#0000FF';
                 this.ctx.beginPath();
-                this.ctx.moveTo(x + fruitSize / 2, y);
-                this.ctx.lineTo(x + fruitSize, y + fruitSize * 0.7);
-                this.ctx.lineTo(x + fruitSize * 0.7, y + fruitSize);
-                this.ctx.lineTo(x + fruitSize * 0.3, y + fruitSize);
-                this.ctx.lineTo(x, y + fruitSize * 0.7);
+                this.ctx.moveTo(x + fruitSize / 2, y + fruitSize * 0.1);
+                this.ctx.lineTo(x + fruitSize * 0.8, y + fruitSize * 0.4);
+                this.ctx.lineTo(x + fruitSize * 0.7, y + fruitSize * 0.9);
+                this.ctx.lineTo(x + fruitSize * 0.3, y + fruitSize * 0.9);
+                this.ctx.lineTo(x + fruitSize * 0.2, y + fruitSize * 0.4);
                 this.ctx.closePath();
                 this.ctx.fill();
                 
                 // Add details
                 this.ctx.fillStyle = '#FF0000';
                 this.ctx.beginPath();
-                this.ctx.arc(x + fruitSize / 2, y + fruitSize / 2, fruitSize * 0.2, 0, Math.PI * 2);
+                this.ctx.arc(x + fruitSize / 2, y + fruitSize * 0.5, fruitSize * 0.15, 0, Math.PI * 2);
                 this.ctx.fill();
                 break;
                 
             case 6: // Bell
                 this.ctx.fillStyle = '#FFFF00';
                 this.ctx.beginPath();
-                this.ctx.arc(x + fruitSize / 2, y + fruitSize * 0.4, fruitSize * 0.4, Math.PI, 0, false);
+                this.ctx.arc(x + fruitSize / 2, y + fruitSize * 0.4, fruitSize * 0.3, Math.PI, 0, false);
                 this.ctx.lineTo(x + fruitSize * 0.7, y + fruitSize * 0.9);
                 this.ctx.lineTo(x + fruitSize * 0.3, y + fruitSize * 0.9);
                 this.ctx.closePath();
@@ -776,6 +611,170 @@ class Game {
                 this.ctx.fillRect(x + fruitSize * 0.75, y + fruitSize * 0.3, fruitSize * 0.1, fruitSize * 0.3);
                 break;
         }
+    }
+
+    /**
+     * Game loop
+     * @param {number} timestamp - Current timestamp
+     */
+    gameLoop(timestamp) {
+        // Calculate delta time
+        const deltaTime = timestamp - this.lastFrameTime;
+        this.lastFrameTime = timestamp;
+        
+        // Clear canvas
+        this.ctx.fillStyle = '#000';
+        this.ctx.fillRect(0, 0, this.width, this.height);
+        
+        // Update game state
+        this.update(deltaTime);
+        
+        // Draw game
+        this.draw();
+        
+        // Continue game loop
+        requestAnimationFrame(this.gameLoop.bind(this));
+    }
+
+    /**
+     * Update game state
+     * @param {number} deltaTime - Time elapsed since the last update
+     */
+    update(deltaTime) {
+        // Update score display
+        this.updateScoreDisplay();
+        
+        // Update lives display
+        this.updateLivesDisplay();
+        
+        // Handle different game states
+        switch (this.state) {
+            case GAME_STATE.READY:
+                this.updateReadyState(deltaTime);
+                break;
+                
+            case GAME_STATE.PLAYING:
+                if (!this.isPaused) {
+                    this.updatePlayingState(deltaTime);
+                }
+                break;
+                
+            case GAME_STATE.DYING:
+                this.updateDyingState(deltaTime);
+                break;
+                
+            case GAME_STATE.LEVEL_COMPLETE:
+                this.updateLevelCompleteState(deltaTime);
+                break;
+                
+            case GAME_STATE.GAME_OVER:
+                this.updateGameOverState(deltaTime);
+                break;
+        }
+    }
+
+    /**
+     * Update the ready state
+     * @param {number} deltaTime - Time elapsed since the last update
+     */
+    updateReadyState(deltaTime) {
+        this.readyTimer += deltaTime;
+        
+        // Start game after 2 seconds
+        if (this.readyTimer >= 2000 && document.getElementById('startScreen').classList.contains('hidden')) {
+            this.state = GAME_STATE.PLAYING;
+        }
+    }
+
+    /**
+     * Update the playing state
+     * @param {number} deltaTime - Time elapsed since the last update
+     */
+    updatePlayingState(deltaTime) {
+        // Update Pac-Man
+        pacman.update(deltaTime);
+        
+        // Update ghosts
+        ghostManager.update(
+            deltaTime,
+            pacman,
+            pacman.dotCount,
+            gameMap.dotCount,
+            getLevelConfig(this.level)
+        );
+        
+        // Update fruit
+        this.updateFruit(deltaTime);
+        
+        // Check for level complete - fixed to require eating all dots
+        if (pacman.dotCount >= gameMap.dotCount) {
+            this.onLevelComplete();
+        }
+        
+        // Update score
+        this.score = pacman.score;
+    }
+
+    /**
+     * Update the dying state
+     * @param {number} deltaTime - Time elapsed since the last update
+     */
+    updateDyingState(deltaTime) {
+        // Pac-Man's death animation is handled in the Pac-Man class
+        pacman.update(deltaTime);
+    }
+
+    /**
+     * Update the level complete state
+     * @param {number} deltaTime - Time elapsed since the last update
+     */
+    updateLevelCompleteState(deltaTime) {
+        this.levelCompleteTimer += deltaTime;
+        
+        // Start next level after 3 seconds
+        if (this.levelCompleteTimer >= 3000) {
+            this.startNextLevel();
+        }
+    }
+
+    /**
+     * Update the game over state
+     * @param {number} deltaTime - Time elapsed since the last update
+     */
+    updateGameOverState(deltaTime) {
+        this.gameOverTimer += deltaTime;
+    }
+
+    /**
+     * Update the fruit
+     * @param {number} deltaTime - Time elapsed since the last update
+     */
+    updateFruit(deltaTime) {
+        // Update fruit timer
+        this.fruitTimer += deltaTime;
+        
+        // Determine when to show fruit based on dots eaten
+        const dotsEaten = pacman.dotCount;
+        const totalDots = gameMap.dotCount;
+        
+        // Show first fruit at 70 dots eaten
+        if (!this.fruitVisible && !this.fruitEaten && dotsEaten >= 70 && dotsEaten < 170) {
+            this.showFruit();
+        }
+        
+        // Show second fruit at 170 dots eaten
+        if (!this.fruitVisible && this.fruitEaten && dotsEaten >= 170) {
+            this.showFruit();
+            this.fruitEaten = false; // Reset for next level
+        }
+        
+        // Hide fruit after 10 seconds
+        if (this.fruitVisible && this.fruitTimer >= 10000) {
+            this.hideFruit();
+        }
+        
+        // Check if Pac-Man has eaten the fruit
+        this.checkFruitCollision();
     }
 }
 

@@ -206,6 +206,9 @@ class PacMan {
         // Get the duration based on the current level
         const levelConfig = getLevelConfig(game.level);
         this.powerModeEndTime = levelConfig.frightTime;
+        
+        // Make ghosts frightened
+        ghostManager.enterFrightenedMode(this.powerModeEndTime);
     }
 
     /**
