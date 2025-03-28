@@ -24,6 +24,8 @@ class Ghost {
         this.exitingHouse = false; // New flag to track exit state
         this.isStuck = false; // Flag to track if ghost is stuck in a tunnel
         this.stuckTimer = 0; // Timer to track how long ghost has been stuck
+        this.inTunnel = false; // Flag to track if ghost is in a tunnel
+        this.tunnelExitTimer = 0; // Timer to track tunnel exit
     }
 
     /**
@@ -74,6 +76,8 @@ class Ghost {
         this.exitingHouse = false;
         this.isStuck = false;
         this.stuckTimer = 0;
+        this.inTunnel = false;
+        this.tunnelExitTimer = 0;
     }
 
     /**
@@ -598,6 +602,9 @@ class Ghost {
         
         // Enhanced tunnel detection - check if we're in a tunnel tile
         if (gameMap.isTunnel(row, column)) {
+            // Mark that we're in a tunnel
+            this.inTunnel = true;
+            
             // Update stuck timer if in tunnel
             if (this.isStuck) {
                 this.stuckTimer += deltaTime;
@@ -607,7 +614,7 @@ class Ghost {
             }
             
             // Only teleport when at the center of the tunnel tile or if stuck for too long
-            if (isAtTileCenter(this.x, this.y) || this.stuckTimer > 1000) {
+            if (isAtTileCenter(this.x, this.y) || this.stuckTimer > 800) { // Reduced from 1000ms to 800ms
                 const oppositeTunnel = gameMap.getOppositeTunnel(row, column);
                 
                 if (oppositeTunnel) {
@@ -629,10 +636,30 @@ class Ghost {
                     this.isStuck = false;
                     this.stuckTimer = 0;
                     
+                    // Set tunnel exit timer to ensure ghost keeps moving in the same direction
+                    this.tunnelExitTimer = 500; // 500ms of forced movement in the same direction
+                    
                     console.log(`${this.type} ghost teleported through tunnel`);
                 }
             }
         } else {
+            // If we were in a tunnel but now we're not, handle tunnel exit
+            if (this.inTunnel) {
+                // Update tunnel exit timer
+                if (this.tunnelExitTimer > 0) {
+                    this.tunnelExitTimer -= deltaTime;
+                    
+                    // Force ghost to keep moving in the same direction for a short time after exiting tunnel
+                    if (this.tunnelExitTimer > 0) {
+                        // Don't allow direction changes during this time
+                        this.nextDirection = this.direction;
+                    }
+                }
+                
+                // Mark that we're no longer in a tunnel
+                this.inTunnel = false;
+            }
+            
             // Reset stuck status when not in tunnel
             this.isStuck = false;
             this.stuckTimer = 0;
@@ -698,16 +725,20 @@ class Ghost {
         ctx.arc(0, 0, radius, Math.PI, 0, false);
         ctx.lineTo(radius, radius);
         
-        // Draw wavy bottom
+        // Draw wavy bottom - animate based on movement
         const waveHeight = radius / 4;
         const waveCount = 3;
         const waveWidth = (radius * 2) / waveCount;
+        
+        // Use time-based animation for the wavy bottom
+        const animationOffset = Math.floor(Date.now() / 100) % 2; // Toggle between 0 and 1 every 100ms
         
         for (let i = 0; i < waveCount; i++) {
             const startX = radius - (i * waveWidth);
             const endX = radius - ((i + 1) * waveWidth);
             
-            if (i % 2 === 0) {
+            // Alternate the wave pattern based on animation offset
+            if ((i + animationOffset) % 2 === 0) {
                 ctx.lineTo(endX, radius);
             } else {
                 ctx.lineTo(endX, radius + waveHeight);

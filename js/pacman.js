@@ -175,8 +175,8 @@ class PacMan {
             this.x = centerPos.x;
             this.y = centerPos.y;
             
-            // Allow player to stop Pac-Man by keeping direction as is
-            // This is different from the previous behavior where direction was set to NONE
+            // Stop Pac-Man when hitting a wall for consistency with tryChangeDirection
+            this.direction = DIRECTION.NONE;
         }
     }
 
