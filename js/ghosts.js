@@ -371,7 +371,7 @@ class Ghost {
         // If just bobbing up and down in HOUSE mode
         if (this.mode === GHOST_MODE.HOUSE) {
             const dirVector = directionToVector(this.direction);
-            this.y += dirVector.y * houseSpeed;
+            this.y += dirVector.y * houseSpeed * (deltaTime / 1000); // Add deltaTime scaling
             
             // Reverse direction at boundaries
             const spawnPixelY = this.housePosition.y; // Use initial spawn Y as center
@@ -403,7 +403,7 @@ class Ghost {
                 this.direction = this.x < targetX ? DIRECTION.RIGHT : DIRECTION.LEFT;
                 this.nextDirection = this.direction;
                 const dirVector = directionToVector(this.direction);
-                this.x += dirVector.x * houseSpeed;
+                this.x += dirVector.x * houseSpeed * (deltaTime / 1000); // Add deltaTime scaling
                 
                 // Prevent overshooting
                 if ((this.direction === DIRECTION.RIGHT && this.x > targetX) ||
@@ -421,7 +421,7 @@ class Ghost {
                 this.direction = DIRECTION.UP;
                 this.nextDirection = DIRECTION.UP;
                 const dirVector = directionToVector(this.direction);
-                this.y += dirVector.y * houseSpeed; // Move UP
+                this.y += dirVector.y * houseSpeed * (deltaTime / 1000); // Add deltaTime scaling
                 
                 // 3. Check if ghost has reached or passed the exit Y position
                 if (this.y <= exitY) {
