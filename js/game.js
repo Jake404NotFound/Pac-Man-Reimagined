@@ -448,6 +448,9 @@ class Game {
         
         // Play level complete sound
         audioManager.play('levelComplete');
+        
+        // Save high score when completing a level
+        this.saveHighScore();
     }
 
     /**
@@ -663,6 +666,12 @@ class Game {
         
         // Update lives display
         this.updateLivesDisplay();
+        
+        // Check if score exceeds high score and update it immediately
+        if (this.score > this.highScore) {
+            this.highScore = this.score;
+            localStorage.setItem('pacmanHighScore', this.highScore.toString());
+        }
         
         // Handle different game states
         switch (this.state) {

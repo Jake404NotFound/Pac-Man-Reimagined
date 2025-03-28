@@ -20,6 +20,7 @@ class PacMan {
         this.isDying = false;
         this.deathAnimationFrame = 0;
         this.deathAnimationTime = 0;
+        this.isStuck = false; // Flag to track if Pac-Man is stuck in a tunnel
     }
 
     /**
@@ -40,6 +41,7 @@ class PacMan {
         this.deathAnimationFrame = 0;
         this.deathAnimationTime = 0;
         this.ghostsEaten = 0;
+        this.isStuck = false;
     }
 
     /**
@@ -138,6 +140,10 @@ class PacMan {
                     this.angle = Math.PI;
                     break;
             }
+        } else {
+            // If trying to move into a wall, stop Pac-Man
+            // This allows player to stop Pac-Man by pressing a direction key toward a wall
+            this.direction = DIRECTION.NONE;
         }
     }
 
@@ -162,12 +168,15 @@ class PacMan {
         if (gameMap.canMove(nextGrid.row, nextGrid.column)) {
             this.x = nextX;
             this.y = nextY;
+            this.isStuck = false; // Reset stuck flag when moving
         } else {
             // If we hit a wall, align to the center of the current tile
             const centerPos = gridToPixel(row, column);
             this.x = centerPos.x;
             this.y = centerPos.y;
-            this.direction = DIRECTION.NONE;
+            
+            // Allow player to stop Pac-Man by keeping direction as is
+            // This is different from the previous behavior where direction was set to NONE
         }
     }
 
@@ -220,14 +229,34 @@ class PacMan {
         if (gameMap.isTunnel(row, column)) {
             // Only teleport when at the center of the tunnel tile
             if (isAtTileCenter(this.x, this.y)) {
-                const oppositeTunnel = gameMap.getOppositeTunnel(row, column);
-                
-                if (oppositeTunnel) {
-                    const newPos = gridToPixel(oppositeTunnel.row, oppositeTunnel.column);
-                    this.x = newPos.x;
-                    this.y = newPos.y;
+                // Check if Pac-Man has been stuck in the tunnel for too long
+                if (this.isStuck) {
+                    // Force teleport to the opposite tunnel
+                    const oppositeTunnel = gameMap.getOppositeTunnel(row, column);
+                    
+                    if (oppositeTunnel) {
+                        const newPos = gridToPixel(oppositeTunnel.row, oppositeTunnel.column);
+                        this.x = newPos.x;
+                        this.y = newPos.y;
+                        this.isStuck = false; // Reset stuck flag after teleporting
+                    }
+                } else {
+                    // Mark as potentially stuck for the next frame
+                    this.isStuck = true;
+                    
+                    // Normal teleportation logic
+                    const oppositeTunnel = gameMap.getOppositeTunnel(row, column);
+                    
+                    if (oppositeTunnel) {
+                        const newPos = gridToPixel(oppositeTunnel.row, oppositeTunnel.column);
+                        this.x = newPos.x;
+                        this.y = newPos.y;
+                    }
                 }
             }
+        } else {
+            // Reset stuck flag when not in a tunnel
+            this.isStuck = false;
         }
     }
 
