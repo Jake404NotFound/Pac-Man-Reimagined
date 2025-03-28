@@ -335,8 +335,15 @@ class Game {
         const livesContainer = document.getElementById('lives');
         livesContainer.innerHTML = '';
         
-        // Draw Pac-Man lives
-        pacman.drawLives(this.ctx, livesContainer.offsetWidth / 2, livesContainer.offsetHeight / 2);
+        // Create a canvas element for drawing the lives
+        const livesCanvas = document.createElement('canvas');
+        livesCanvas.width = (SCALED_TILE_SIZE + 5) * pacman.lives;
+        livesCanvas.height = SCALED_TILE_SIZE;
+        livesContainer.appendChild(livesCanvas);
+        
+        // Get the context and draw the lives
+        const livesCtx = livesCanvas.getContext('2d');
+        pacman.drawLives(livesCtx, SCALED_TILE_SIZE / 2, livesCanvas.height / 2);
     }
 
     /**
@@ -707,7 +714,7 @@ class Game {
         this.updateFruit(deltaTime);
         
         // Check for level complete - fixed to require eating all dots
-        if (pacman.dotCount >= gameMap.dotCount) {
+        if (pacman.dotCount === gameMap.dotCount) {
             this.onLevelComplete();
         }
         
